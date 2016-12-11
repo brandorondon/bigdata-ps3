@@ -12,7 +12,7 @@ import com.github.fommil.netlib._
 val conf = new Configuration
 conf.set("textinputformat.record.delimiter", "\n\n")
 
-val rawData = sc.newAPIHadoopFile("/shared3/data-medium.txt", classOf[TextInputFormat], classOf[LongWritable], classOf[Text], conf).map(_._2.toString)
+val rawData = sc.newAPIHadoopFile("/shared3/data-small.txt", classOf[TextInputFormat], classOf[LongWritable], classOf[Text], conf).map(_._2.toString)
 val splitReviews = rawData.map( review => review.split("\n") )
 val reviewMap = splitReviews.map( arr => {
   val productId = arr( 0 ).split("/productId: ")(1)
@@ -35,11 +35,12 @@ conf.set("textinputformat.record.delimiter", "\n")
 val ratingsToProcess = sc.textFile("/shared3/items-medium.txt")
 val finalResults = ratingsToProcess
   .map( curr => {
-    val currRecommended = model.recommendUsers(products(curr), 100)
+    val tempCurr = products(curr)
+    val currRecommended = model.recommendUsers(tempCurr, 100)
       .map( r => r.user)
       .map( r => model.recommendProducts(r,1))
       .map( r => r(0).product)
-      .filter(_ != 291)
+      .filter(_ != tempCurr)
       .take(10)
       .map( r => reverseProducts(r))
     curr + "," + currRecommended.mkString(",")
