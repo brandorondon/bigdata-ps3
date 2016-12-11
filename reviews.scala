@@ -1,3 +1,5 @@
+//spark−shell −−master yarn −−deploy−mode client −−queue hadoop07 −−driver−memory 4g −−executor−memory 4g −−executor−cores 2
+
 import org.apache.hadoop.io.Text
 import org.apache.hadoop.io.LongWritable
 import org.apache.hadoop.conf.Configuration
@@ -20,7 +22,9 @@ val reviewMap = splitReviews.map( arr => {
 } )
 
 val names = reviewMap.map(_._1).distinct.sortBy(x => x).zipWithIndex.collectAsMap
+val reverseNames = names.map(_.swap)
 val products = reviewMap.map(_._2).distinct.sortBy(x => x).zipWithIndex.collectAsMap
+val reverseProducts = products.map(_.swap)
 val ratings = reviewMap.collect.map( r => new Rating(names(r._1).toInt, products(r._2)toInt, r._3.toDouble))
 val ratingsRdd = sc.parallelize(ratings)
 val rank = 10
