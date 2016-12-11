@@ -12,13 +12,13 @@ import com.github.fommil.netlib._
 val conf = new Configuration
 conf.set("textinputformat.record.delimiter", "\n\n")
 
-val rawData = sc.newAPIHadoopFile("/shared3/data-small.txt", classOf[TextInputFormat], classOf[LongWritable], classOf[Text], conf).map(_._2.toString)
+val rawData = sc.newAPIHadoopFile("/shared3/data-medium.txt", classOf[TextInputFormat], classOf[LongWritable], classOf[Text], conf).map(_._2.toString)
 val splitReviews = rawData.map( review => review.split("\n") )
 val reviewMap = splitReviews.map( arr => {
-    val productId = arr( 0 ).split("/productId: ")(1)
-    val userId = arr( 3 ).split("/userId: ")(1)
-    val score = arr( 6 ).split("/score: ")(1)
-    (userId, productId, score)
+  val productId = arr( 0 ).split("/productId: ")(1)
+  val userId = arr( 3 ).split("/userId: ")(1)
+  val score = arr( 6 ).split("/score: ")(1)
+  (userId, productId, score)
 } )
 
 val names = reviewMap.map(_._1).distinct.sortBy(x => x).zipWithIndex.collectAsMap
@@ -30,3 +30,17 @@ val ratingsRdd = sc.parallelize(ratings)
 val rank = 10
 val numIterations = 10
 val model = ALS.train(ratingsRdd, rank, numIterations, 0.01)
+
+conf.set("textinputformat.record.delimiter", "\n")
+val ratingsToProcess = sc.textFile("/shared3/items-medium.txt")
+val finalResults = ratingsToProcess
+  .map( curr => {
+    val currRecommended = model.recommendUsers(products(curr), 100)
+      .map( r => r.user)
+      .map( r => model.recommendProducts(r,1))
+      .map( r => r(0).product)
+      .filter(_ != 291)
+      .take(10)
+      .map( r => reverseProducts(r))
+    curr + "," + currRecommended.mkString(",")
+  })
