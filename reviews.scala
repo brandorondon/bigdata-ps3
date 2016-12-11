@@ -32,16 +32,21 @@ val numIterations = 10
 val model = ALS.train(ratingsRdd, rank, numIterations, 0.01)
 
 conf.set("textinputformat.record.delimiter", "\n")
-val ratingsToProcess = sc.textFile("/shared3/items-medium.txt")
-val finalResults = ratingsToProcess
-  .map( curr => {
-    val tempCurr = products(curr)
-    val currRecommended = model.recommendUsers(tempCurr, 100)
-      .map( r => r.user)
-      .map( r => model.recommendProducts(r,1))
-      .map( r => r(0).product)
-      .filter(_ != tempCurr)
-      .take(10)
-      .map( r => reverseProducts(r))
-    curr + "," + currRecommended.mkString(",")
+val ratingsToProcess = sc.textFile("/user/hadoop07/items-small.txt").collect
+// To test on the keySet which we know exists in dict
+//val ratingsToProcess = products.keySet.toArray.take(10)
+
+val finalResults = ratingsToProcess.map( curr => {
+    if ( products.contains(curr)) {
+      val tempCurr = products(curr)
+      val currRecommended = model.recommendUsers(tempCurr.toInt, 100)
+        .map( r => model.recommendProducts(r.user,1))
+        .map( r => r(0).product)
+        .filter(_ != tempCurr)
+        .take(10)
+        .map( r => reverseProducts(r))
+      curr + "," + currRecommended.mkString(",")
+    } else {
+      curr
+    }
   })
