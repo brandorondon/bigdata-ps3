@@ -1,19 +1,22 @@
 // $SPARK_HOME/bin/spark-submit --master yarn --deploy-mode client --queue hadoop07 --driver-memory 4g --executor-memory 4g --executor-cores 2 recommender.jar
 
 import org.apache.hadoop.io.Text
+import org.apache.hadoop.fs.FileSystem
 import org.apache.hadoop.io.LongWritable
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
 import org.apache.spark.mllib.recommendation.ALS
 import org.apache.spark.mllib.recommendation.MatrixFactorizationModel
 import org.apache.spark.mllib.recommendation.Rating
 import org.apache.spark.SparkContext
+import java.io.BufferedOutputStream
 
 
 object Main {
 	def main(args: Array[String]) {
 		val sc = new SparkContext
-		
+
 		val conf = new Configuration
 		conf.set("textinputformat.record.delimiter", "\n\n")
 
@@ -44,7 +47,8 @@ object Main {
 		val finalResults = ratingsToProcess.map( curr => {
 			if ( products.contains(curr)) {
 			  val tempCurr = products(curr)
-			  val currRecommended = model.recommendUsers(tempCurr.toInt, 100)
+				val numUsers = 100
+			  val currRecommended = model.recommendUsers(tempCurr.toInt, numUsers)
 				.map( r => model.recommendProducts(r.user,1))
 				.map( r => r(0).product)
 				.filter(_ != tempCurr)
@@ -54,6 +58,16 @@ object Main {
 			} else {
 			  curr
 			}
-		  })
+		})
+
+		val outputFileName = "/user/hadoop07/recommended-items.txt"
+		val fs = FileSystem.get(sc.hadoopConfiguration);
+		val output = fs.create(new Path(outputFileName));
+		val os = new BufferedOutputStream(output)
+		for (line <- finalResults) {
+			os.write((line + "\n").getBytes("UTF-8"))
+		}
+
+		os.close()
 	}
 }
